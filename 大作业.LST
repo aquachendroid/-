@@ -1,0 +1,375 @@
+C51 COMPILER V9.02   ´ó×__µ                                                                11/07/2020 10:11:06 PAGE 1   
+
+
+C51 COMPILER V9.02, COMPILATION OF MODULE ´ó×__µ
+OBJECT MODULE PLACED IN ´ó×÷Òµ.OBJ
+COMPILER INVOKED BY: D:\C51\BIN\C51.EXE ´ó×÷Òµ.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include<reg52.h>
+   2          
+   3          unsigned int n = 62;
+   4          unsigned int nbuf = 62;
+   5          unsigned char T0RH = 0;
+   6          unsigned char T0RL = 0;
+   7          unsigned int EX = 2;
+   8          unsigned long int totaltime;
+   9          unsigned long int x;
+  10          unsigned int syb = 100;
+  11          
+  12          void ConfigTimer0(unsigned int ms);
+  13          void CountTime();
+  14          void TimeWatchCount();
+  15          void ShowNumber2(unsigned long int num);
+  16          
+  17          sbit ADDR0 = P1^0;
+  18          sbit ADDR1 = P1^1;
+  19          sbit ADDR2 = P1^2;
+  20          sbit ADDR3 = P1^3;
+  21          sbit ENLED = P1^4;
+  22          
+  23          sbit KEY_IN_1 = P2^4;
+  24          sbit KEY_IN_2 = P2^5;
+  25          sbit KEY_IN_3 = P2^6;
+  26          sbit KEY_IN_4 = P2^7;
+  27          sbit KEY_OUT_1 = P2^3;
+  28          sbit KEY_OUT_2 = P2^2;
+  29          sbit KEY_OUT_3 = P2^1;
+  30          sbit KEY_OUT_4 = P2^0;
+  31          
+  32          unsigned char code image[] = 
+  33          {
+  34              0xFF,0xFF,0x81,0x00,0x24,0x24,0x24,0x24, //m
+  35              0xC0,0x80,0x8C,0x8C,0xC0,0xE0,0xC4,0x8C, //R
+  36              0xFF,0xFF,0xFF,0xFB,0xC3,0xB3,0xFB,0xFB, //r
+  37              0xFF,0xFF,0x99,0x99,0x81,0x81,0x99,0x99, //H
+  38              0xFF,0x81,0x81,0xE7,0xE7,0xE7,0xE7,0xE7, //T
+  39          };
+  40          unsigned char code LedChar[]=
+  41          {
+  42                  0xC0, 0xF9, 0xA4, 0xB0, 
+  43                  0x99, 0x92, 0x82, 0xF8,
+  44                  0x80, 0x90, 0x88, 0x83,
+  45                  0xC6, 0xA1, 0x86, 0x8E
+  46          };
+  47          unsigned char LedBuff[6] = 
+  48          {
+  49                  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+  50          };
+  51          
+  52          unsigned char KeySta[4][4] = 
+  53          { 
+  54                  {1,1,1,1},
+  55                  {1,1,1,1},
+C51 COMPILER V9.02   ´ó×__µ                                                                11/07/2020 10:11:06 PAGE 2   
+
+  56                  {1,1,1,1},
+  57                  {1,1,1,1}
+  58          };
+  59          unsigned char code KeyCodeMap[4][4] = 
+  60          { //¾ØÕó°´¼ü±àºÅµ½±ê×¼¼üÅÌ¼üÂëµÄÓ³Éä±í
+  61              { 0x31, 0x32, 0x33, 0x26 }, //Êý×Ö¼ü1¡¢Êý×Ö¼ü2¡¢Êý×Ö¼ü3¡¢ÏòÉÏ¼ü
+  62              { 0x34, 0x35, 0x36, 0x25 }, //Êý×Ö¼ü4¡¢Êý×Ö¼ü5¡¢Êý×Ö¼ü6¡¢Ïò×ó¼ü
+  63              { 0x37, 0x38, 0x39, 0x28 }, //Êý×Ö¼ü7¡¢Êý×Ö¼ü8¡¢Êý×Ö¼ü9¡¢ÏòÏÂ¼ü
+  64              { 0x30, 0x1B, 0x0D, 0x27 }  //Êý×Ö¼ü0¡¢ESC¼ü¡¢  »Ø³µ¼ü¡¢ ÏòÓÒ¼ü
+  65          };
+  66          void  KeyDriver();
+  67          
+  68          /*Ö÷º¯Êý*/
+  69          void main()
+  70          {
+  71   1          EA = 1;
+  72   1          ENLED = 0;    //Ñ¡ÔñÊýÂë¹Ü½øÐÐÏÔÊ¾
+  73   1          ADDR3 = 1;
+  74   1          TMOD &= 0xF0;
+  75   1              TMOD |= 0x01;
+  76   1          ConfigTimer0(1);
+  77   1          ET0  = 1;     //Ê¹ÄÜT0ÖÐ¶Ï
+  78   1          EX0 = 1;      //Ê¹Íâ²¿ÖÐ¶Ï0¹¤×÷
+  79   1          IT0 = 1;     //ÉèÖÃÍâ²¿ÖÐ¶Ï´¥·¢·½Ê½ 
+  80   1          LedBuff[0] = LedChar[((n-2)/2)%10];
+  81   1          LedBuff[1] = LedChar[((n-2)/2)/10%10];
+  82   1          while(1)
+  83   1          {
+  84   2              KeyDriver(); 
+  85   2          }
+  86   1      }
+  87          
+  88          /*°´¼ü¹¦ÄÜº¯Êý*/
+  89          void KeyAction(unsigned char keycode)
+  90          {
+  91   1          static unsigned int esctime = 0;    //ÞôÁË¼¸´ÎESC
+  92   1          unsigned int i;
+  93   1              if((keycode == 0x0d) && EX == 0)
+  94   1              {
+  95   2              ShowNumber2(totaltime);
+  96   2              }
+  97   1          if(keycode == 0x26)
+  98   1          {
+  99   2              if(n < 182)
+ 100   2              {
+ 101   3                  n = n + 20;
+ 102   3                  nbuf = n;
+ 103   3                  LedBuff[0] = LedChar[((n-2)/2)%10];
+ 104   3                  LedBuff[1] = LedChar[((n-2)/2)/10%10];
+ 105   3              }
+ 106   2          }
+ 107   1          if(keycode == 0x28)
+ 108   1          {
+ 109   2              if(n > 22)
+ 110   2              {
+ 111   3                  n = n - 20;
+ 112   3                  nbuf = n;
+ 113   3                  LedBuff[0] = LedChar[((n-2)/2)%10];
+ 114   3                  LedBuff[1] = LedChar[((n-2)/2)/10%10];
+ 115   3              }
+ 116   2          }
+ 117   1          if(keycode == 0x1b)
+C51 COMPILER V9.02   ´ó×__µ                                                                11/07/2020 10:11:06 PAGE 3   
+
+ 118   1          {
+ 119   2              i = 0;
+ 120   2             P0 = 0xFF;
+ 121   2              switch(i)
+ 122   2              {
+ 123   3                      case 0: ADDR2=0; ADDR1=0; ADDR0=0; i++; P0=image[0];break;
+ 124   3                      case 1: ADDR2=0; ADDR1=0; ADDR0=1; i++; P0=image[1];break;
+ 125   3                      case 2: ADDR2=0; ADDR1=1; ADDR0=0; i++; P0=image[2];break;
+ 126   3                      case 3: ADDR2=0; ADDR1=1; ADDR0=1; i++; P0=image[3];break;
+ 127   3                      case 4: ADDR2=1; ADDR1=0; ADDR0=0; i++; P0=image[4];break;
+ 128   3                      case 5: ADDR2=1; ADDR1=0; ADDR0=1; i++; P0=image[5];break;
+ 129   3                      case 6: ADDR2=1; ADDR1=1; ADDR0=0; i++; P0=image[6];break;
+ 130   3                      case 7: ADDR2=1; ADDR1=1; ADDR0=1; i=0; P0=image[7];break;
+ 131   3                      default: break;
+ 132   3      
+ 133   3              }
+ 134   2          }
+ 135   1      }
+*** WARNING C280 IN LINE 91 OF ´ó×÷Òµ.C: 'esctime': unreferenced local variable
+ 136          
+ 137          /*¼à²â°´¼üÊÇ·ñ°´ÏÂµÄº¯Êý*/
+ 138          void  KeyDriver()
+ 139          {
+ 140   1              unsigned char i, j;
+ 141   1              static  unsigned char backup [4][4] = 
+ 142   1          {
+ 143   1              {1,1,1,1},
+ 144   1              {1,1,1,1},
+ 145   1              {1,1,1,1},
+ 146   1              {1,1,1,1}
+ 147   1              };
+ 148   1      
+ 149   1              for(i=0; i<4; i++)
+ 150   1                      {
+ 151   2                              for(j=0; j<4; j++)
+ 152   2                              {
+ 153   3                                      if(backup[i][j] != KeySta[i][j])
+ 154   3                                      {
+ 155   4                                              if(backup[i][j] == 0)
+ 156   4                                              {
+ 157   5                                                      KeyAction(KeyCodeMap[i][j]);
+ 158   5                                              }
+ 159   4                                              backup[i][j] = KeySta[i][j];
+ 160   4                                      }
+ 161   3                              }       
+ 162   2                      }
+ 163   1      
+ 164   1              
+ 165   1      }
+ 166          
+ 167          /* °´¼üÉ¨Ãèº¯Êý£¬ÐèÔÚ¶¨Ê±ÖÐ¶ÏÖÐµ÷ÓÃ£¬ÍÆ¼öµ÷ÓÃ¼ä¸ô1ms */
+ 168          void KeyScan()
+ 169          {
+ 170   1          unsigned char i;
+ 171   1          static unsigned char keyout = 0;   //¾ØÕó°´¼üÉ¨ÃèÊä³öË÷Òý
+ 172   1          static unsigned char keybuf[4][4] = 
+ 173   1          {  //¾ØÕó°´¼üÉ¨Ãè»º³åÇø
+ 174   1              {0xFF, 0xFF, 0xFF, 0xFF},  
+ 175   1                      {0xFF, 0xFF, 0xFF, 0xFF},
+ 176   1              {0xFF, 0xFF, 0xFF, 0xFF},  
+ 177   1                      {0xFF, 0xFF, 0xFF, 0xFF}
+ 178   1          };
+C51 COMPILER V9.02   ´ó×__µ                                                                11/07/2020 10:11:06 PAGE 4   
+
+ 179   1      
+ 180   1          //½«Ò»ÐÐµÄ4¸ö°´¼üÖµÒÆÈë»º³åÇø
+ 181   1          keybuf[keyout][0] = (keybuf[keyout][0] << 1) | KEY_IN_1;
+ 182   1          keybuf[keyout][1] = (keybuf[keyout][1] << 1) | KEY_IN_2;
+ 183   1          keybuf[keyout][2] = (keybuf[keyout][2] << 1) | KEY_IN_3;
+ 184   1          keybuf[keyout][3] = (keybuf[keyout][3] << 1) | KEY_IN_4;
+ 185   1          //Ïû¶¶ºó¸üÐÂ°´¼ü×´Ì¬
+ 186   1          for (i=0; i<4; i++)  //Ã¿ÐÐ4¸ö°´¼ü£¬ËùÒÔÑ­»·4´Î
+ 187   1          {
+ 188   2              if ((keybuf[keyout][i] & 0x0F) == 0x00)
+ 189   2              {   //Á¬Ðø4´ÎÉ¨ÃèÖµÎª0£¬¼´4*4msÄÚ¶¼ÊÇ°´ÏÂ×´Ì¬Ê±£¬¿ÉÈÏÎª°´¼üÒÑÎÈ¶¨µÄ°´ÏÂ
+ 190   3                  KeySta[keyout][i] = 0;
+ 191   3              }
+ 192   2              else if ((keybuf[keyout][i] & 0x0F) == 0x0F)
+ 193   2              {   //Á¬Ðø4´ÎÉ¨ÃèÖµÎª1£¬¼´4*4msÄÚ¶¼ÊÇµ¯Æð×´Ì¬Ê±£¬¿ÉÈÏÎª°´¼üÒÑÎÈ¶¨µÄµ¯Æð
+ 194   3                  KeySta[keyout][i] = 1;
+ 195   3              }
+ 196   2          }
+ 197   1          //Ö´ÐÐÏÂÒ»´ÎµÄÉ¨ÃèÊä³ö
+ 198   1          keyout++;                //Êä³öË÷ÒýµÝÔö
+ 199   1          keyout = keyout & 0x03;  //Ë÷ÒýÖµ¼Óµ½4¼´¹éÁã
+ 200   1          switch (keyout)          //¸ù¾ÝË÷Òý£¬ÊÍ·Åµ±Ç°Êä³öÒý½Å£¬À­µÍÏÂ´ÎµÄÊä³öÒý½Å
+ 201   1          {
+ 202   2              case 0: KEY_OUT_4 = 1; KEY_OUT_1 = 0; break;
+ 203   2              case 1: KEY_OUT_1 = 1; KEY_OUT_2 = 0; break;
+ 204   2              case 2: KEY_OUT_2 = 1; KEY_OUT_3 = 0; break;
+ 205   2              case 3: KEY_OUT_3 = 1; KEY_OUT_4 = 0; break;
+ 206   2              default: break;
+ 207   2          }
+ 208   1      }
+ 209          
+ 210          /*ÊýÂë¹Ü¸³Öµº¯Êý*/
+ 211          void ShowNumber1()
+ 212          {
+ 213   1          LedBuff[0] = LedChar[x%10];
+ 214   1          LedBuff[1] = LedChar[x/10%10];
+ 215   1      }
+ 216          
+ 217          /*ÊýÂë¹Ü¸³Öµº¯Êý*/
+ 218          void ShowNumber2(unsigned long int num)
+ 219          {
+ 220   1          signed char j;
+ 221   1              unsigned char buf[6];
+ 222   1      
+ 223   1              for(j=0; j<6; j++)
+ 224   1              {
+ 225   2                      buf[j] = num % 10;
+ 226   2                      num = num / 10;
+ 227   2              }
+ 228   1      
+ 229   1              for(j=5; j>=3; j--)
+ 230   1              {
+ 231   2                      if(buf[j] == 0)
+ 232   2                      {
+ 233   3                              LedBuff[j] = 0xFF;
+ 234   3                      }
+ 235   2                      else
+ 236   2                              break;
+ 237   2              }
+ 238   1              
+ 239   1              for(; j>=0; j--)
+ 240   1              {
+C51 COMPILER V9.02   ´ó×__µ                                                                11/07/2020 10:11:06 PAGE 5   
+
+ 241   2                      LedBuff[j] = LedChar[buf[j]];   
+ 242   2              }
+ 243   1          LedBuff[2] &= 0x7F;
+ 244   1      }
+ 245          
+ 246          /* ÊýÂë¹Ü¶¯Ì¬É¨ÃèË¢ÐÂº¯Êý£¬ÐèÔÚ¶¨Ê±ÖÐ¶ÏÖÐµ÷ÓÃ */
+ 247          void LedScan()
+ 248          {
+ 249   1          static unsigned char i = 0;  //¶¯Ì¬É¨ÃèµÄË÷Òý
+ 250   1          
+ 251   1          P0 = 0xFF;   //ÏÔÊ¾ÏûÒþ
+ 252   1      
+ 253   1          P1 = ((P1 & 0xf8) | i);
+ 254   1          P0 = LedBuff[i];
+ 255   1          if(i < 5)
+ 256   1            i++;
+ 257   1          else
+ 258   1            i = 0;
+ 259   1      }
+ 260          
+ 261          /*30´ÎÖÜÆÚ¹Ø±ÕÍâ²¿ÖÐ¶Ï*/
+ 262          void CountTime()
+ 263          {
+ 264   1          if(n <= 1)
+ 265   1          {
+ 266   2              EX0 = 0;
+ 267   2              EX = 0;
+ 268   2          }
+ 269   1      }
+ 270          
+ 271          /*ÓÃÓÚ¼ÆËã¶¨Ê±Æ÷³õÖµµÄº¯Êý*/
+ 272          void ConfigTimer0(unsigned int ms)
+ 273          {
+ 274   1              unsigned long tmp;
+ 275   1      
+ 276   1              tmp = 11059200/12;
+ 277   1              tmp = (tmp * ms)/1000;
+ 278   1              tmp = 65536 - tmp;
+ 279   1              tmp = tmp + 18;
+ 280   1      
+ 281   1              T0RH = (unsigned char)(tmp >> 8);
+ 282   1              T0RL = (unsigned char)tmp;
+ 283   1              TMOD &= 0xF0;
+ 284   1              TMOD |= 0x01;
+ 285   1              TH0 = T0RH;
+ 286   1              TL0 = T0RL;
+ 287   1              ET0 = 1;
+ 288   1          TR0 = 1;
+ 289   1      }
+ 290          
+ 291          /*ÊýÂë¹ÜÏÔÊ¾ÖÜÆÚÊý*/
+ 292          void PeriodWatch()
+ 293          {
+ 294   1          if(n > nbuf - 3)
+ 295   1          {
+ 296   2              x = (nbuf-2)/2;
+ 297   2          }
+ 298   1          if(n == nbuf - 3)
+ 299   1          {
+ 300   2              x = (nbuf-2)/2 - 1;
+ 301   2          }
+ 302   1          if((n < nbuf - 3) && ((n-1)%2 == 0))
+C51 COMPILER V9.02   ´ó×__µ                                                                11/07/2020 10:11:06 PAGE 6   
+
+ 303   1          {
+ 304   2              x = (n - 1) / 2;
+ 305   2          }
+ 306   1          ShowNumber1();
+ 307   1      }
+ 308          
+ 309          /*¶ÁÃëº¯Êý*/
+ 310          void TimewatchCount()
+ 311          {
+ 312   1          totaltime++;
+ 313   1      }
+ 314          
+ 315          /*Íâ²¿ÖÐ¶Ï0µÄº¯Êý*/
+ 316          void interruptEX0() interrupt 0  //Íâ²¿ÖÐ¶Ï£¬ÓÃÀ´¼ì²â¹âµçÃÅÊÇ·ñ±»ÕÚ×¡
+ 317          {
+ 318   1          EX = 1;
+ 319   1          n--;
+ 320   1          CountTime();
+ 321   1          PeriodWatch(); 
+ 322   1      }
+ 323          
+ 324          /*¶¨Ê±Æ÷0µÄÖÐ¶Ïº¯Êý*/
+ 325          void interrupTimer0() interrupt 1
+ 326          {
+ 327   1          static unsigned long int tmr10ms;
+ 328   1          TH0 = T0RH;  //ÖØÐÂ¼ÓÔØÖØÔØÖµ
+ 329   1          TL0 = T0RL;
+ 330   1          LedScan();   //ÊýÂë¹ÜÉ¨Ãè
+ 331   1          KeyScan();   //°´¼üÉ¨Ãè
+ 332   1          if(EX == 1)
+ 333   1          {
+ 334   2              tmr10ms++;
+ 335   2              if(tmr10ms >= 10)
+ 336   2              {
+ 337   3              tmr10ms = 0;
+ 338   3              TimeWatchCount();
+ 339   3              }
+ 340   2          }    
+ 341   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1576    ----
+   CONSTANT SIZE    =     72    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     80      18
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  0 ERROR(S)
